@@ -6,7 +6,7 @@
   font-display: swap;
 }
 
-/* ---------------- تم روز (پیش‌فرض) ---------------- */
+/* ---------------- Light theme (default) ---------------- */
 :root {
   color-scheme: light;
   --bg: #f5f6f8;
@@ -35,7 +35,7 @@
   --thumb-bg: #f3f4f6;
 }
 
-/* ---------------- تم شب ---------------- */
+/* ---------------- Dark theme ---------------- */
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #0f1218;
@@ -67,10 +67,15 @@
 * { box-sizing: border-box; }
 body {
   margin: 0; padding: 24px; background: var(--bg); color: var(--text);
-  font: 14px/1.8 'Vazirmatn', Tahoma, 'Segoe UI', sans-serif;
+  font: 14px/1.8 'Vazirmatn', 'Segoe UI', system-ui, -apple-system, Roboto, Tahoma, sans-serif;
   transition: background-color .2s, color .2s;
 }
 input, select, textarea, button { font-family: inherit; }
+/* Vazirmatn has no Cyrillic glyphs: use the system UI font for Russian */
+html[lang="ru"] body { font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif; line-height: 1.6; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.header-controls { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.lang-picker select { padding: 5px 10px; border-radius: 10px; font-size: 13px; }
 header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 800; }
 .sub { margin: 0 0 16px; color: var(--muted); }
@@ -124,7 +129,7 @@ legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
 
 .tablewrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { border-bottom: 1px solid var(--row-line); padding: 8px; text-align: right; vertical-align: top; }
+th, td { border-bottom: 1px solid var(--row-line); padding: 8px; text-align: start; vertical-align: top; }
 th { background: var(--surface-2); position: sticky; top: 0; white-space: nowrap; font-weight: 700; }
 th[data-sort] { cursor: pointer; }
 th[data-sort]:hover { color: var(--link); }
@@ -136,6 +141,8 @@ td.thumb img { width: 64px; height: 48px; object-fit: contain; background: var(-
 .fmt { display: inline-block; padding: 1px 8px; border-radius: 6px; background: var(--fmt-bg); color: var(--fmt-fg); font-weight: 700; font-size: 12px; }
 .fmt.ok { background: var(--ok-bg); color: var(--ok-fg); }
 .fmt.err { background: var(--err-bg); color: var(--err-fg); }
-.note { display: block; color: var(--muted); font-size: 11px; direction: rtl; text-align: right; }
+.note { display: block; color: var(--muted); font-size: 11px; }
+td.url .note { direction: ltr; text-align: left; }
+html[dir="rtl"] td.url .note { direction: rtl; text-align: right; }
 .pager { justify-content: center; align-items: center; margin-top: 10px; }
 .empty { text-align: center; color: var(--faint); padding: 30px; }

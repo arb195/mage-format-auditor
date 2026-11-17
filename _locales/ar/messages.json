@@ -1,0 +1,14 @@
+{
+  "appName": {
+    "message": "Image Format Auditor"
+  },
+  "appShortName": {
+    "message": "Img Auditor"
+  },
+  "appDesc": {
+    "message": "يزحف إلى الموقع بالكامل ويعثر على كل صورة ليست بصيغة WebP أو SVG، مع الصفحات التي تُستخدم فيها."
+  },
+  "actionTitle": {
+    "message": "فحص صيغ الصور في هذا الموقع"
+  }
+}

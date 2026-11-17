@@ -10,10 +10,6 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-f59e0b" alt="MIT License"></a>
 </p>
 
-<p align="center">
-  <b>English</b> · <a href="#فارسی">فارسی</a>
-</p>
-
 ---
 
 **Image Format Auditor** is a Chrome extension that crawls an entire website and lists every image that isn't **WebP** or **SVG**. For each image it shows the real format, the file size and every page it's used on, so you know exactly what to convert first.
@@ -34,7 +30,8 @@
   - one row per page–image pair
   - errors
 - **Configurable:** choose which formats are allowed (WebP, SVG, AVIF, GIF, ICO), the page limit, concurrency, request delay, subdomains and URL patterns to exclude.
-- **Light / dark / auto theme**, bundled Vazirmatn font, Persian RTL interface.
+- **5 languages:** English, Arabic, Russian, German and Persian, with full right-to-left layout for Arabic and Persian. The language is picked from your browser automatically and can be changed at any time.
+- **Light / dark / auto theme**, with the Vazirmatn font bundled (works offline).
 - **Private by design:** no servers, no analytics, no dependencies. Everything runs in your own browser.
 
 ## Screenshots
@@ -42,6 +39,18 @@
 | Light | Dark |
 |:---:|:---:|
 | <img src="docs/screenshot-light.webp" alt="Light theme"> | <img src="docs/screenshot-dark.webp" alt="Dark theme"> |
+
+## Languages
+
+| Language | Code | Direction |
+|---|---|---|
+| English | `en` | LTR |
+| Arabic | `ar` | RTL |
+| Russian | `ru` | LTR |
+| German | `de` | LTR |
+| Persian | `fa` | RTL |
+
+<p align="center"><img src="docs/languages.webp" alt="The interface in all five languages" width="820"></p>
 
 ## Installation
 
@@ -59,8 +68,9 @@
 ## Usage
 
 1. Open any page of the site you want to audit and click the extension icon. The tool opens in a new tab with the site's address already filled in.
-2. Press **Start** (شروع). Progress, page count and results update live, and you can pause or stop at any time.
+2. Press **Start**. Progress, page count and results update live, and you can pause or stop at any time.
 3. Filter by format, search by URL, sort by size or page count, then export to CSV.
+4. Use the language menu and the Light / Auto / Dark switch in the top corner to change the interface.
 
 > **Tip:** keep the tool's tab open until the crawl finishes. Results live in memory and are lost when the tab is closed.
 
@@ -92,7 +102,9 @@
 ├── app.html          # UI
 ├── app.css           # Styles + light/dark theme variables
 ├── app.js            # Crawler, image extraction, format detection, CSV export
+├── i18n.js           # UI translations and language switcher
 ├── theme.js          # Theme switcher (auto / light / dark)
+├── _locales/         # Extension name/description per language (chrome.i18n)
 ├── fonts/            # Vazirmatn (SIL OFL 1.1)
 ├── icons/
 └── docs/             # README images
@@ -102,44 +114,13 @@
 
 Issues and pull requests are welcome. Please open an issue first to discuss larger changes.
 
+**Adding a language:**
+
+1. In `i18n.js`, add the language to `LANGS` (name, text direction, number locale).
+2. Copy the `en` block in `STRINGS` and translate every key.
+3. Add `_locales/<code>/messages.json` for the extension name and description shown in Chrome.
+
 ## License
 
 [MIT](LICENSE). The bundled [Vazirmatn](https://github.com/rastikerdar/vazirmatn) font is licensed under the [SIL Open Font License 1.1](fonts/Vazirmatn-OFL.txt).
 
----
-
-<div dir="rtl" align="right">
-
-<h2 id="فارسی">فارسی</h2>
-
-**Image Format Auditor** یک افزونه کروم است که کل سایت را کرال می‌کند و همه تصاویری را که **WebP** یا **SVG** نیستند پیدا می‌کند. برای هر تصویر فرمت واقعی، حجم و همه صفحاتی که در آن‌ها استفاده شده را نشان می‌دهد، تا بدانید اول کدام تصاویر را تبدیل کنید.
-
-### امکانات
-
-- **کرال کامل سایت:** از طریق لینک‌های داخلی، `robots.txt` و `sitemap.xml`
-- **پیدا کردن تصاویر از همه جا:**
-  - `<img>`، `srcset`، `<picture>` و تصاویر lazy-load
-  - پس‌زمینه‌های CSS (فایل‌های CSS، تگ `style` و استایل درون‌خطی)
-  - `og:image`، فاوآیکن و لینک‌هایی که مستقیم به عکس اشاره می‌کنند
-- **تشخیص فرمت واقعی** از روی پاسخ سرور، نه فقط پسوند فایل
-- **مرتب‌سازی بر اساس حجم** یا تعداد صفحات، برای اولویت‌بندی
-- **فهرست جداگانه** صفحات و تصاویر خراب (۴۰۴)
-- **خروجی CSV** که فارسی‌اش در اکسل درست نمایش داده می‌شود
-- **حالت شب و روز**، فونت وزیرمتن (داخل خود افزونه، بدون نیاز به اینترنت)
-- **بدون سرور و بدون ارسال داده:** همه چیز داخل مرورگر خودتان اجرا می‌شود
-
-### نصب
-
-1. فایل zip را از بخش [**Releases**](https://github.com/arb195/mage-format-auditor/releases/latest) دانلود و از حالت فشرده خارج کنید.
-2. در مرورگر به `chrome://extensions` بروید.
-3. گزینه **Developer mode** را روشن کنید (شماره ۱ در تصویر بالا).
-4. روی **Load unpacked** بزنید (شماره ۲) و پوشه افزونه را انتخاب کنید.
-5. آیکون افزونه را از منوی پازل Pin کنید.
-
-### استفاده
-
-روی سایت مورد نظر، آیکون افزونه را بزنید. ابزار در یک تب جدید باز می‌شود و آدرس سایت خودکار پر شده است. «شروع» را بزنید و تا پایان کار تب را نبندید.
-
-> **نکته:** اگر سایت پشت ابرآروان یا کلودفلر است، یک بار سایت را در همان مرورگر باز کنید و «درخواست هم‌زمان» را روی ۱ یا ۲ بگذارید.
-
-</div>

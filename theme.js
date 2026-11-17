@@ -1,6 +1,6 @@
 'use strict';
-// مدیریت حالت شب/روز: «خودکار» از تنظیمات سیستم پیروی می‌کند؛ انتخاب کاربر ذخیره می‌شود.
-// این فایل در <head> بارگذاری می‌شود تا صفحه قبل از نمایش با تم درست رنگ‌آمیزی شود.
+// Light/dark theme switcher. "auto" follows the OS setting; the user's choice is saved.
+// Loaded in <head> so the page is painted with the right theme from the start.
 (function () {
   const KEY = 'ia-theme';
   const media = window.matchMedia('(prefers-color-scheme: dark)');

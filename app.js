@@ -2,10 +2,14 @@
 
 /* =========================================================================
    Image Format Auditor
-   کرال کامل یک سایت و گزارش تصاویری که فرمت مجاز (پیش‌فرض WebP/SVG) ندارند.
+   Crawls a whole website and reports every image whose format is not
+   allowed (WebP/SVG by default). UI strings live in i18n.js.
    ========================================================================= */
 
 const $ = (id) => document.getElementById(id);
+const t = (key, params) => I18N.t(key, params);
+const num = (n) => I18N.num(n);
+const numLocale = () => I18N.LANGS[I18N.lang].num;
 
 const IMG_ACCEPT = 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8';
 const PAGE_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
@@ -22,14 +26,15 @@ const CT_FORMAT = {
   'image/bmp': 'bmp', 'image/x-ms-bmp': 'bmp', 'image/x-icon': 'ico', 'image/vnd.microsoft.icon': 'ico',
   'image/tiff': 'tiff', 'image/heic': 'heic', 'image/heif': 'heic', 'image/jxl': 'jxl'
 };
-// پسوندهایی که صفحه HTML نیستند و نباید به‌عنوان صفحه کرال شوند
+// File extensions that are never HTML pages and must not be crawled as pages
 const NON_PAGE_EXT = /\.(jpe?g|jpe|jfif|png|apng|gif|webp|svgz?|avif|bmp|ico|tiff?|heic|heif|jxl|pdf|zip|rar|7z|gz|tgz|tar|mp4|m4v|mp3|m4a|webm|mov|avi|mkv|wav|ogg|flac|docx?|xlsx?|pptx?|csv|css|js|mjs|json|xml|rss|atom|txt|woff2?|ttf|otf|eot|exe|msi|dmg|apk|iso)$/i;
 const NON_IMAGE_EXT = /\.(css|js|mjs|json|woff2?|ttf|otf|eot|html?|php|aspx?|pdf|mp4|webm|mp3)$/i;
 const TRACKING_PARAMS = /^(utm_[a-z]+|fbclid|gclid|yclid|msclkid|mc_cid|mc_eid|_ga|ref)$/i;
 
+const srcLabel = (s) => (s === 'link' ? t('srcLink') : SOURCE_LABEL[s] || s);
 const SOURCE_LABEL = {
   img: '<img>', srcset: 'srcset', picture: '<picture>', css: 'CSS', style: 'style', meta: 'og/meta',
-  icon: 'favicon', link: 'لینک', poster: 'poster', preload: 'preload', data: 'data-*', svgimage: 'svg image'
+  icon: 'favicon', link: 'link', poster: 'poster', preload: 'preload', data: 'data-*', svgimage: 'svg image'
 };
 
 /* ------------------------------ state ------------------------------ */
@@ -99,11 +104,11 @@ function toUrl(raw, base) {
 function extFormat(u) {
   const m = u.pathname.toLowerCase().match(/\.([a-z0-9]+)$/);
   if (m && EXT_FORMAT[m[1]]) return EXT_FORMAT[m[1]];
-  // پارامترهای رایج CDNها مثل ?format=webp یا ?fm=webp
+  // Common CDN query params such as ?format=webp or ?fm=webp
   const q = u.searchParams;
   const f = (q.get('format') || q.get('fm') || q.get('f') || q.get('output') || '').toLowerCase();
   if (EXT_FORMAT[f]) return EXT_FORMAT[f];
-  // Next.js: /_next/image?url=/a.jpg  → فرمت نهایی را سرور تعیین می‌کند؛ نامشخص
+  // e.g. Next.js /_next/image?url=/a.jpg: the server decides the final format → unknown until verified
   return '';
 }
 
@@ -124,7 +129,7 @@ function fmtSize(b) {
 
 function parseSrcset(v) {
   if (!v) return [];
-  // جدا کردن بر اساس ویرگولی که بعدش فاصله یا آخر رشته است (آدرس‌ها ممکن است ویرگول داشته باشند)
+  // Split on commas followed by whitespace (URLs themselves may contain commas)
   return v.split(/,\s+|,(?=\S+\s+\d)/).map((s) => s.trim().split(/\s+/)[0]).filter(Boolean);
 }
 
@@ -133,7 +138,7 @@ function cssUrls(text) {
   const re = /url\(\s*(['"]?)(.*?)\1\s*\)/gi;
   let m;
   while ((m = re.exec(text))) out.push(m[2]);
-  // image-set("a.png" 1x, ...) بدون url()
+  // image-set("a.png" 1x, ...) without url()
   const re2 = /image-set\(([^)]*)\)/gi;
   while ((m = re2.exec(text))) {
     (m[1].match(/(['"])(.*?)\1/g) || []).forEach((s) => out.push(s.slice(1, -1)));
@@ -200,7 +205,7 @@ async function processPage(url) {
     return;
   }
   const finalUrl = new URL(res.url || url);
-  // ریدایرکت به بیرون از سایت → نادیده بگیر؛ صفحه‌ای که قبلاً پردازش شده → تکراری
+  // Redirected off-site → ignore; final URL already processed → duplicate
   if (!inScope(finalUrl)) { try { res.body && res.body.cancel(); } catch {} return; }
   const fk = pageKey(finalUrl);
   if (S.processed.has(fk)) { try { res.body && res.body.cancel(); } catch {} return; }
@@ -225,7 +230,7 @@ async function processPage(url) {
   extractImages(doc, base, pageUrl);
   if (S.cfg.parseCss) await extractCss(doc, base, pageUrl);
 
-  // لینک‌ها
+  // Links
   doc.querySelectorAll('a[href], area[href]').forEach((a) => {
     const u = toUrl(a.getAttribute('href'), base);
     if (!u) return;
@@ -255,7 +260,7 @@ function extractImages(doc, base, pageUrl) {
         const ss = (s.getAttribute('srcset') || s.getAttribute('data-srcset') || '').toLowerCase();
         return /webp|avif|svg/.test(t) || /\.(webp|avif|svg)(\s|$|\?|,)/.test(ss);
       });
-      if (modern) note = 'fallback داخل <picture> (نسخه WebP/AVIF هم دارد)';
+      if (modern) note = 'pictureFallback';
     }
     LAZY.forEach((a) => img.hasAttribute(a) && add(img.getAttribute(a), pic ? 'picture' : 'img', note));
     LAZY_SET.forEach((a) => parseSrcset(img.getAttribute(a)).forEach((s) => add(s, 'srcset', note)));
@@ -307,10 +312,10 @@ function extractImages(doc, base, pageUrl) {
   });
 }
 
-// تصاویر داخل CSS: فونت‌ها و فایل‌های غیرتصویری حذف می‌شوند
+// Images referenced from CSS: fonts and other non-image files are skipped
 function addCssImage(u, pageUrl, source) {
   if (!u || NON_IMAGE_EXT.test(u.pathname)) return;
-  if (!S.cfg.verify && !extFormat(u)) return; // بدون بررسی سرور فقط پسوندهای شناخته‌شده
+  if (!S.cfg.verify && !extFormat(u)) return; // without server checks, only known image extensions
   addImage(u, pageUrl, source);
 }
 
@@ -376,7 +381,7 @@ async function verifyImage(rec) {
   const cf = ctFormat(ct);
   if (cf) rec.format = cf;
   else if (ct && !/octet-stream|binary/i.test(ct)) {
-    // مثلا text/html یا font → تصویر نیست (معمولاً از CSS آمده)
+    // e.g. text/html or a font → not an image (usually came from CSS)
     if (!rec.extFmt) rec.notImage = true;
   }
   const cr = res.headers.get('content-range');
@@ -409,7 +414,7 @@ async function loadSitemaps(origin) {
     const sm = stack.shift();
     if (done.has(sm) || /\.gz$/i.test(sm)) continue;
     done.add(sm);
-    setStatus('در حال خواندن سایت‌مپ: ' + sm);
+    setStatus('sitemapReading', { url: sm });
     try {
       const r = await fetchWithTimeout(sm, {}, 20000);
       if (!r.ok) continue;
@@ -419,7 +424,7 @@ async function loadSitemaps(origin) {
         const u = toUrl(l.textContent.trim());
         if (u) { const before = S.seen.size; enqueuePage(u); if (S.seen.size > before) found++; }
       });
-      // تصاویر اعلام‌شده در image sitemap
+      // Images declared in an image sitemap
       xml.querySelectorAll('url').forEach((urlEl) => {
         const page = urlEl.querySelector('loc');
         [...urlEl.getElementsByTagNameNS('*', 'loc')].filter((x) => x.parentElement && x.parentElement.localName === 'image')
@@ -441,7 +446,7 @@ async function pageWorker() {
       continue;
     }
     S.active++;
-    setStatus('در حال بررسی: ' + url);
+    setStatus('crawling', { url });
     try { await processPage(url); }
     catch (e) { S.pageErrors.push({ url, error: e.message || String(e) }); }
     finally { S.active--; }
@@ -469,9 +474,10 @@ async function imageWorker() {
 /* ------------------------------ control ------------------------------ */
 function readConfig() {
   let raw = $('url').value.trim();
-  if (!raw) throw new Error('آدرس سایت را وارد کنید.');
+  if (!raw) throw new Error('errUrl');
   if (!/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
-  const start = new URL(raw);
+  let start;
+  try { start = new URL(raw); } catch { throw new Error('errUrl'); }
   return {
     start,
     rootHost: bareHost(start.hostname),
@@ -498,23 +504,23 @@ async function start() {
   $('url').value = cfg.start.href;
 
   enqueuePage(cfg.start);
-  // صفحه اصلی دامنه هم اضافه شود
+  // Always include the site's home page too
   enqueuePage(new URL('/', cfg.start));
 
   if (cfg.useSitemap) {
     const n = await loadSitemaps(cfg.start.origin);
-    setStatus(n ? `${n} صفحه از سایت‌مپ اضافه شد.` : 'سایت‌مپ پیدا نشد؛ کرال از طریق لینک‌ها ادامه می‌یابد.');
+    if (n) setStatus('sitemapFound', { n: num(n) }); else setStatus('sitemapNone');
   }
 
   const crawl = Promise.all(Array.from({ length: cfg.concurrency }, pageWorker)).then(() => { S.crawlDone = true; });
   const imgs = cfg.verify ? Promise.all(Array.from({ length: Math.max(2, cfg.concurrency) }, imageWorker)) : Promise.resolve();
   await crawl;
-  if (!S.stopped) setStatus('کرال صفحات تمام شد؛ در حال بررسی فرمت باقی تصاویر…');
+  if (!S.stopped) setStatus('crawlDoneVerifying');
   await imgs;
 
   S.running = false;
   const secs = Math.round((Date.now() - S.startedAt) / 1000);
-  setStatus((S.stopped ? 'متوقف شد. ' : 'تمام شد. ') + `${S.pagesDone.toLocaleString('fa-IR')} صفحه در ${secs.toLocaleString('fa-IR')} ثانیه بررسی شد.`);
+  setStatus(S.stopped ? 'stopped' : 'done', { pages: S.pagesDone, secs }, true);
   setButtons();
   render();
 }
@@ -522,7 +528,7 @@ async function start() {
 function togglePause() {
   if (!S || !S.running) return;
   S.paused = !S.paused;
-  setStatus(S.paused ? 'متوقف موقت.' : 'ادامه…');
+  setStatus(S.paused ? 'paused' : 'resuming');
   setButtons();
 }
 
@@ -530,7 +536,7 @@ function stop() {
   if (!S || !S.running) return;
   S.stopped = true;
   S.paused = false;
-  setStatus('در حال توقف…');
+  setStatus('stopping');
 }
 
 function setButtons() {
@@ -538,11 +544,23 @@ function setButtons() {
   $('start').disabled = !!running;
   $('pause').disabled = !running;
   $('stop').disabled = !running;
-  $('pause').textContent = S && S.paused ? 'ادامه' : 'توقف موقت';
+  $('pause').textContent = t(S && S.paused ? 'resume' : 'pause');
 }
 
-function setStatus(t) { $('status').textContent = t; }
-function alertStatus(t) { $('status').textContent = '⚠ ' + t; }
+// Status is stored as key + params so it can be re-translated when the language changes.
+// Params listed in numParams are formatted with the current locale's digits.
+let lastStatus = { key: 'ready', params: null, warn: false, fmtNums: false };
+function setStatus(key, params = null, fmtNums = false, warn = false) {
+  lastStatus = { key, params, warn, fmtNums };
+  paintStatus();
+}
+function paintStatus() {
+  const { key, params, warn, fmtNums } = lastStatus;
+  let p = params;
+  if (p && fmtNums) p = Object.fromEntries(Object.entries(p).map(([k, v]) => [k, typeof v === 'number' ? num(v) : v]));
+  $('status').textContent = (warn ? '⚠ ' : '') + t(key, p);
+}
+function alertStatus(key) { setStatus(key, null, false, true); }
 
 /* ------------------------------ results & rendering ------------------------------ */
 function isBad(rec) {
@@ -567,18 +585,19 @@ function render() {
   const all = visibleImages();
   const bad = all.filter(isBad);
   const errored = all.filter((r) => r.error);
-  $('sPages').textContent = S.pagesDone.toLocaleString('fa-IR');
-  $('sQueue').textContent = (S.queue.length + (S.cfg.verify ? S.imgQueue.length : 0)).toLocaleString('fa-IR');
-  $('sImages').textContent = all.length.toLocaleString('fa-IR');
-  $('sBad').textContent = bad.length.toLocaleString('fa-IR');
-  $('sBadSize').textContent = fmtSize(bad.reduce((a, r) => a + (r.size || 0), 0));
-  $('sErrors').textContent = (S.pageErrors.length + errored.length).toLocaleString('fa-IR');
+  $('sPages').textContent = S.pagesDone.toLocaleString(numLocale());
+  $('sQueue').textContent = (S.queue.length + (S.cfg.verify ? S.imgQueue.length : 0)).toLocaleString(numLocale());
+  $('sImages').textContent = all.length.toLocaleString(numLocale());
+  $('sBad').textContent = bad.length.toLocaleString(numLocale());
+  // <bdi dir=ltr> keeps "11.08 MB" in the right order inside RTL layouts
+  $('sBadSize').innerHTML = `<bdi dir="ltr">${fmtSize(bad.reduce((a, r) => a + (r.size || 0), 0))}</bdi>`;
+  $('sErrors').textContent = (S.pageErrors.length + errored.length).toLocaleString(numLocale());
 
   const total = S.seen.size || 1;
   const pct = S.running ? Math.min(99, (S.processed.size / total) * 100) : 100;
   $('bar').style.width = pct + '%';
 
-  // تفکیک فرمت‌ها
+  // Per-format breakdown
   const counts = {};
   (ui.showAll ? all.filter((r) => !r.error) : bad).forEach((r) => { const f = r.format || 'unknown'; counts[f] = (counts[f] || 0) + 1; });
   if (errored.length) counts['error'] = errored.length;
@@ -587,20 +606,20 @@ function render() {
   chips.forEach(([f, n]) => {
     const c = document.createElement('span');
     c.className = 'chip' + (ui.fmt === f ? ' on' : '');
-    c.textContent = `${fmtName(f)}: ${n.toLocaleString('fa-IR')}`;
+    c.textContent = `${fmtName(f)}: ${n.toLocaleString(numLocale())}`;
     c.onclick = () => { ui.fmt = ui.fmt === f ? '' : f; $('fmtFilter').value = ui.fmt; ui.page = 0; render(); };
     $('formats').appendChild(c);
   });
   const sel = $('fmtFilter');
   const cur = sel.value;
-  sel.innerHTML = '<option value="">همه فرمت‌ها</option>' + chips.map(([f]) => `<option value="${f}">${fmtName(f)}</option>`).join('');
+  sel.innerHTML = `<option value="">${esc(t('allFormats'))}</option>` + chips.map(([f]) => `<option value="${f}">${fmtName(f)}</option>`).join('');
   sel.value = cur;
 
   renderTable();
 }
 
 function fmtName(f) {
-  return f === 'unknown' ? 'نامشخص' : f === 'error' ? 'خطا/شکسته' : f.toUpperCase();
+  return f === 'unknown' ? t('fmtUnknown') : f === 'error' ? t('fmtError') : f.toUpperCase();
 }
 
 function filteredRows() {
@@ -638,7 +657,7 @@ function renderTable() {
   const slice = rows.slice(ui.page * ui.perPage, (ui.page + 1) * ui.perPage);
   const tb = $('rows');
   if (!slice.length) {
-    tb.innerHTML = `<tr><td colspan="7" class="empty">${S && S.running ? 'در حال جستجو…' : 'موردی یافت نشد.'}</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="7" class="empty">${esc(t(S && S.running ? 'searching' : 'noResults'))}</td></tr>`;
   } else {
     tb.innerHTML = slice.map((r, i) => {
       const ok = S.cfg.okFormats.has(r.format);
@@ -647,24 +666,24 @@ function renderTable() {
       const pageList = [...r.pages];
       const shown = pageList.slice(0, 3).map((p) => `<a href="${esc(p)}" target="_blank">${esc(p)}</a>`).join('');
       const more = pageList.length > 3
-        ? `<details><summary>+${(pageList.length - 3).toLocaleString('fa-IR')} صفحه دیگر</summary>${pageList.slice(3, 300).map((p) => `<a href="${esc(p)}" target="_blank">${esc(p)}</a>`).join('')}${pageList.length > 300 ? '<span class="note">…(لیست کامل در خروجی CSV)</span>' : ''}</details>`
+        ? `<details><summary><bdi>${esc(t('morePages', { n: num(pageList.length - 3) }))}</bdi></summary>${pageList.slice(3, 300).map((p) => `<a href="${esc(p)}" target="_blank">${esc(p)}</a>`).join('')}${pageList.length > 300 ? `<span class="note">${esc(t('fullListCsv'))}</span>` : ''}</details>`
         : '';
-      const src = [...r.sources].map((s) => SOURCE_LABEL[s] || s).join('، ');
-      const notes = [...r.notes].map((n) => `<span class="note">${esc(n)}</span>`).join('');
+      const src = [...r.sources].map(srcLabel).join(', ');
+      const notes = [...r.notes].map((n) => `<span class="note">${esc(t(n))}</span>`).join('');
       const ctNote = r.contentType && ctFormat(r.contentType) !== r.extFmt && r.extFmt
-        ? `<span class="note">پسوند ${esc(r.extFmt)} ولی سرور ${esc(r.contentType)} می‌دهد</span>` : '';
+        ? `<span class="note">${esc(t('ctMismatch', { ext: r.extFmt, ct: r.contentType }))}</span>` : '';
       return `<tr>
-        <td>${(ui.page * ui.perPage + i + 1).toLocaleString('fa-IR')}</td>
+        <td>${(ui.page * ui.perPage + i + 1).toLocaleString(numLocale())}</td>
         <td class="thumb"><img loading="lazy" src="${esc(r.url)}" alt=""></td>
-        <td class="url"><a href="${esc(r.url)}" target="_blank">${esc(r.url)}</a><span class="note">منبع: ${esc(src)}</span>${notes}${ctNote}</td>
+        <td class="url"><a href="${esc(r.url)}" target="_blank">${esc(r.url)}</a><span class="note">${esc(t('source', { s: src }))}</span>${notes}${ctNote}</td>
         <td><span class="${fcls}">${esc(flabel)}</span></td>
-        <td>${fmtSize(r.size)}</td>
-        <td>${pageList.length.toLocaleString('fa-IR')}</td>
+        <td><bdi dir="ltr">${fmtSize(r.size)}</bdi></td>
+        <td>${pageList.length.toLocaleString(numLocale())}</td>
         <td class="where">${shown}${more}</td>
       </tr>`;
     }).join('');
   }
-  $('pageInfo').textContent = `صفحه ${(ui.page + 1).toLocaleString('fa-IR')} از ${pages.toLocaleString('fa-IR')} — ${rows.length.toLocaleString('fa-IR')} مورد`;
+  $('pageInfo').textContent = t('pageInfo', { page: num(ui.page + 1), pages: num(pages), count: num(rows.length) });
   $('prev').disabled = ui.page === 0;
   $('next').disabled = ui.page >= pages - 1;
 }
@@ -696,7 +715,7 @@ function exportPerImage() {
   const rows = [['image_url', 'format', 'content_type', 'size_bytes', 'size_kb', 'pages_count', 'sources', 'notes', 'pages']];
   filteredRows().forEach((r) => rows.push([
     r.url, r.format || 'unknown', r.contentType, r.size ?? '', r.size ? (r.size / 1024).toFixed(1) : '',
-    r.pages.size, [...r.sources].join(' | '), [...r.notes].join(' | '), [...r.pages].join(' | ')
+    r.pages.size, [...r.sources].join(' | '), [...r.notes].map((n) => t(n)).join(' | '), [...r.pages].join(' | ')
   ]));
   download(fileBase() + '.csv', rows);
 }
@@ -723,12 +742,20 @@ function exportErrors() {
 async function copyUrls() {
   if (!S) return;
   const text = filteredRows().map((r) => r.url).join('\n');
-  try { await navigator.clipboard.writeText(text); setStatus('آدرس‌ها کپی شد.'); }
-  catch { setStatus('کپی انجام نشد.'); }
+  try { await navigator.clipboard.writeText(text); setStatus('copied'); }
+  catch { setStatus('copyFailed'); }
 }
 
 /* ------------------------------ wiring ------------------------------ */
 document.addEventListener('DOMContentLoaded', () => {
+  paintStatus();
+  $('fmtFilter').innerHTML = `<option value="">${esc(t('allFormats'))}</option>`;
+  document.addEventListener('langchange', () => {
+    paintStatus();
+    setButtons();
+    if (S) render();
+    else $('fmtFilter').innerHTML = `<option value="">${esc(t('allFormats'))}</option>`;
+  });
   const p = new URLSearchParams(location.search).get('url');
   if (p) { try { $('url').value = new URL(p).origin + '/'; } catch {} }
 
