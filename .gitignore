@@ -1,0 +1,16 @@
+# Packaged builds
+*.zip
+*.crx
+
+# Private key created by "Pack extension" — never commit this
+*.pem
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Dependencies (if tooling is added later)
+node_modules/
