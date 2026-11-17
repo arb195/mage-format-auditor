@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>بررسی فرمت تصاویر سایت</title>
+  <link rel="preload" href="fonts/Vazirmatn.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="app.css">
+  <script src="theme.js"></script>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>بررسی فرمت تصاویر سایت</h1>
+      <p class="sub">همه صفحات سایت کرال می‌شوند و هر تصویری که فرمت مجاز نداشته باشد (به‌طور پیش‌فرض: غیر از WebP و SVG) گزارش می‌شود.</p>
+    </div>
+    <div class="theme-toggle" role="group" aria-label="حالت نمایش">
+      <button type="button" data-mode="light" title="حالت روز">☀ روز</button>
+      <button type="button" data-mode="auto" title="مطابق تنظیمات سیستم">خودکار</button>
+      <button type="button" data-mode="dark" title="حالت شب">☾ شب</button>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="row">
+      <label class="grow">آدرس سایت
+        <input id="url" type="url" placeholder="https://example.com" dir="ltr">
+      </label>
+      <div class="buttons">
+        <button id="start" class="primary">شروع</button>
+        <button id="pause" disabled>توقف موقت</button>
+        <button id="stop" class="danger" disabled>پایان</button>
+      </div>
+    </div>
+
+    <details id="settings">
+      <summary>تنظیمات</summary>
+      <div class="grid">
+        <label>حداکثر تعداد صفحات
+          <input id="maxPages" type="number" min="1" value="5000">
+        </label>
+        <label>درخواست هم‌زمان
+          <input id="concurrency" type="number" min="1" max="16" value="4">
+        </label>
+        <label>مکث بین درخواست‌ها (میلی‌ثانیه)
+          <input id="delay" type="number" min="0" value="0">
+        </label>
+        <fieldset>
+          <legend>فرمت‌های مجاز (گزارش نمی‌شوند)</legend>
+          <label class="inline"><input type="checkbox" class="okfmt" value="webp" checked> WebP</label>
+          <label class="inline"><input type="checkbox" class="okfmt" value="svg" checked> SVG</label>
+          <label class="inline"><input type="checkbox" class="okfmt" value="avif"> AVIF</label>
+          <label class="inline"><input type="checkbox" class="okfmt" value="gif"> GIF</label>
+          <label class="inline"><input type="checkbox" class="okfmt" value="ico"> ICO (فاو‌آیکن)</label>
+        </fieldset>
+        <fieldset>
+          <legend>گزینه‌ها</legend>
+          <label class="inline"><input type="checkbox" id="useSitemap" checked> خواندن sitemap.xml</label>
+          <label class="inline"><input type="checkbox" id="verify" checked> تشخیص فرمت واقعی از روی سرور (دقیق‌تر)</label>
+          <label class="inline"><input type="checkbox" id="subdomains"> شامل ساب‌دامین‌ها</label>
+          <label class="inline"><input type="checkbox" id="parseCss" checked> بررسی فایل‌های CSS (background-image)</label>
+          <label class="inline"><input type="checkbox" id="ignoreQuery"> نادیده گرفتن پارامترهای آدرس (?…) در صفحات</label>
+        </fieldset>
+        <label class="full">الگوهای آدرس که کرال نشوند (هر خط یکی)
+          <textarea id="exclude" rows="4" dir="ltr">/wp-admin
+/wp-login
+logout
+/cart
+/checkout
+add-to-cart=
+replytocom=
+/feed</textarea>
+        </label>
+      </div>
+    </details>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><b id="sPages">۰</b><span>صفحه بررسی شد</span></div>
+    <div class="stat"><b id="sQueue">۰</b><span>در صف</span></div>
+    <div class="stat"><b id="sImages">۰</b><span>کل تصاویر یافت‌شده</span></div>
+    <div class="stat warn"><b id="sBad">۰</b><span>تصویر با فرمت نامناسب</span></div>
+    <div class="stat warn"><b id="sBadSize">۰</b><span>حجم کل این تصاویر</span></div>
+    <div class="stat"><b id="sErrors">۰</b><span>خطا (صفحه/تصویر شکسته)</span></div>
+  </section>
+  <div id="status" class="status">آماده.</div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <section class="card">
+    <div class="row toolbar">
+      <input id="search" type="search" placeholder="جستجو در آدرس تصویر یا صفحه…" class="grow">
+      <select id="fmtFilter"><option value="">همه فرمت‌ها</option></select>
+      <label class="inline"><input type="checkbox" id="showAll"> نمایش تصاویر مجاز هم</label>
+    </div>
+    <div class="row toolbar">
+      <button id="csv1">دانلود CSV (هر تصویر یک ردیف)</button>
+      <button id="csv2">دانلود CSV (تصویر + صفحه)</button>
+      <button id="csvErr">دانلود CSV صفحات/تصاویر خطادار</button>
+      <button id="copy">کپی آدرس تصاویر</button>
+      <span id="formats" class="chips"></span>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>پیش‌نمایش</th>
+            <th data-sort="url">آدرس تصویر</th>
+            <th data-sort="format">فرمت</th>
+            <th data-sort="size">حجم</th>
+            <th data-sort="pages">تعداد صفحات</th>
+            <th>کجا استفاده شده</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="row pager">
+      <button id="prev">قبلی</button>
+      <span id="pageInfo"></span>
+      <button id="next">بعدی</button>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
